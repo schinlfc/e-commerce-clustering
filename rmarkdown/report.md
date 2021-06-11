@@ -38,6 +38,7 @@ load_libraries <- function(){
   library(factoextra)
   library(DataExplorer)
   library(gridExtra)
+  library(lubridate)
 print("The libraries are loaded.")
 }
 load_libraries()
@@ -146,3 +147,32 @@ nrow(ecommerce)
 ```
 
     ## [1] 406829
+
+``` r
+# Convert column 'InvoiceDate' to appropriate date class
+ecommerce <- ecommerce %>% mutate(InvoiceDate = lubridate::dmy(InvoiceDate))
+head(ecommerce, 10)
+```
+
+    ##    InvoiceNo StockCode                         Description Quantity InvoiceDate
+    ## 1     536365    85123A  WHITE HANGING HEART T-LIGHT HOLDER        6  2016-11-29
+    ## 2     536365     71053                 WHITE METAL LANTERN        6  2016-11-29
+    ## 3     536365    84406B      CREAM CUPID HEARTS COAT HANGER        8  2016-11-29
+    ## 4     536365    84029G KNITTED UNION FLAG HOT WATER BOTTLE        6  2016-11-29
+    ## 5     536365    84029E      RED WOOLLY HOTTIE WHITE HEART.        6  2016-11-29
+    ## 6     536365     22752        SET 7 BABUSHKA NESTING BOXES        2  2016-11-29
+    ## 7     536365     21730   GLASS STAR FROSTED T-LIGHT HOLDER        6  2016-11-29
+    ## 8     536366     22633              HAND WARMER UNION JACK        6  2016-11-29
+    ## 9     536366     22632           HAND WARMER RED POLKA DOT        6  2016-11-29
+    ## 10    536367     84879       ASSORTED COLOUR BIRD ORNAMENT       32  2016-11-29
+    ##    UnitPrice CustomerID        Country
+    ## 1       2.55      17850 United Kingdom
+    ## 2       3.39      17850 United Kingdom
+    ## 3       2.75      17850 United Kingdom
+    ## 4       3.39      17850 United Kingdom
+    ## 5       3.39      17850 United Kingdom
+    ## 6       7.65      17850 United Kingdom
+    ## 7       4.25      17850 United Kingdom
+    ## 8       1.85      17850 United Kingdom
+    ## 9       1.85      17850 United Kingdom
+    ## 10      1.69      13047 United Kingdom
