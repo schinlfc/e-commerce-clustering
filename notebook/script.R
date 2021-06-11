@@ -42,3 +42,5 @@ ecommerce <- ecommerce[, -9]
 ecommerce <- na.omit(ecommerce)
 # View number of rows after removing NA's
 nrow(ecommerce)
+# Convert column 'InvoiceDate' to appropriate date class
+ecommerce <- ecommerce %>% mutate(InvoiceDate = lubridate::dmy(InvoiceDate))
