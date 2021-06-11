@@ -57,9 +57,26 @@ print(naecommerce %>% summarise_all(sum))
 ecommerce <- ecommerce[, -9]
 # Remove missing rows for column 'CustomerID' 
 ecommerce <- na.omit(ecommerce)
+# Check if any missing NAs remain
+sum(!complete.cases(ecommerce))
 # View number of rows after removing NA's
 nrow(ecommerce)
 # Convert column 'InvoiceDate' to appropriate date class
 ecommerce <- ecommerce %>% mutate(InvoiceDate = lubridate::dmy(InvoiceDate))
 head(ecommerce, 10)
+# Create a 'Revenue' column
+ecommerce <- ecommerce %>% mutate(Revenue = UnitPrice * Quantity)
+head(ecommerce, 10)
+
+## Data exploration
+ecommerce %>% 
+  group_by(InvoiceDate) %>% 
+  summarise(total_revenue = sum(Revenue)) %>%
+  ggplot(aes(InvoiceDate, total_revenue)) +
+    geom_point(color="blue") +
+    geom_smooth(method="auto", se=TRUE, color="red", fill="red",
+                fullrange=FALSE, level=0.95) +
+    labs(title = "Total revenue by invoice date") +
+    xlab("Invoice date") +
+    ylab("Total revenue")
 ```

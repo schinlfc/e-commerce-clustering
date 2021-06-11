@@ -142,6 +142,13 @@ print(naecommerce %>% summarise_all(sum))
 ecommerce <- ecommerce[, -9]
 # Remove missing rows for column 'CustomerID' 
 ecommerce <- na.omit(ecommerce)
+# Check if any missing NAs remain
+sum(!complete.cases(ecommerce))
+```
+
+    ## [1] 0
+
+``` r
 # View number of rows after removing NA's
 nrow(ecommerce)
 ```
@@ -176,3 +183,48 @@ head(ecommerce, 10)
     ## 8       1.85      17850 United Kingdom
     ## 9       1.85      17850 United Kingdom
     ## 10      1.69      13047 United Kingdom
+
+``` r
+# Create a 'Revenue' column
+ecommerce <- ecommerce %>% mutate(Revenue = UnitPrice * Quantity)
+head(ecommerce, 10)
+```
+
+    ##    InvoiceNo StockCode                         Description Quantity InvoiceDate
+    ## 1     536365    85123A  WHITE HANGING HEART T-LIGHT HOLDER        6  2016-11-29
+    ## 2     536365     71053                 WHITE METAL LANTERN        6  2016-11-29
+    ## 3     536365    84406B      CREAM CUPID HEARTS COAT HANGER        8  2016-11-29
+    ## 4     536365    84029G KNITTED UNION FLAG HOT WATER BOTTLE        6  2016-11-29
+    ## 5     536365    84029E      RED WOOLLY HOTTIE WHITE HEART.        6  2016-11-29
+    ## 6     536365     22752        SET 7 BABUSHKA NESTING BOXES        2  2016-11-29
+    ## 7     536365     21730   GLASS STAR FROSTED T-LIGHT HOLDER        6  2016-11-29
+    ## 8     536366     22633              HAND WARMER UNION JACK        6  2016-11-29
+    ## 9     536366     22632           HAND WARMER RED POLKA DOT        6  2016-11-29
+    ## 10    536367     84879       ASSORTED COLOUR BIRD ORNAMENT       32  2016-11-29
+    ##    UnitPrice CustomerID        Country Revenue
+    ## 1       2.55      17850 United Kingdom   15.30
+    ## 2       3.39      17850 United Kingdom   20.34
+    ## 3       2.75      17850 United Kingdom   22.00
+    ## 4       3.39      17850 United Kingdom   20.34
+    ## 5       3.39      17850 United Kingdom   20.34
+    ## 6       7.65      17850 United Kingdom   15.30
+    ## 7       4.25      17850 United Kingdom   25.50
+    ## 8       1.85      17850 United Kingdom   11.10
+    ## 9       1.85      17850 United Kingdom   11.10
+    ## 10      1.69      13047 United Kingdom   54.08
+
+``` r
+## Data exploration
+ecommerce %>% 
+  group_by(InvoiceDate) %>% 
+  summarise(total_revenue = sum(Revenue)) %>%
+  ggplot(aes(InvoiceDate, total_revenue)) +
+    geom_point(color="blue") +
+    geom_smooth(method="auto", se=TRUE, color="red", fill="red",
+                fullrange=FALSE, level=0.95) +
+    labs(title = "Total revenue by invoice date") +
+    xlab("Invoice date") +
+    ylab("Total revenue")
+```
+
+![](report_files/figure-gfm/unnamed-chunk-1-1.png)<!-- -->
