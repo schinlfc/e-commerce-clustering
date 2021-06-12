@@ -11,6 +11,9 @@ load_libraries <- function(){
   library(factoextra)
   library(DataExplorer)
   library(gridExtra)
+  library(lubridate)
+  library(NbClust)
+  library(countrycode)
   print("The libraries are loaded.")
 }
 load_libraries()
@@ -40,7 +43,192 @@ print(naecommerce %>% summarise_all(sum))
 ecommerce <- ecommerce[, -9]
 # Remove missing rows for column 'CustomerID' 
 ecommerce <- na.omit(ecommerce)
+# Check if any missing NAs remain
+sum(!complete.cases(ecommerce))
 # View number of rows after removing NA's
 nrow(ecommerce)
 # Convert column 'InvoiceDate' to appropriate date class
 ecommerce <- ecommerce %>% mutate(InvoiceDate = lubridate::dmy(InvoiceDate))
+head(ecommerce, 10)
+# Create a 'Revenue' column
+ecommerce <- ecommerce %>% mutate(Revenue = UnitPrice * Quantity)
+head(ecommerce, 10)
+
+## Data exploration
+# Plotting total revenue by invoice date
+ecommerce %>% 
+  group_by(InvoiceDate) %>% 
+  summarise(total_revenue = sum(Revenue)) %>%
+  ggplot(aes(InvoiceDate, total_revenue)) +
+  geom_point(color="blue") +
+  geom_smooth(method="auto", se=TRUE, color="red", fill="red",
+              fullrange=FALSE, level=0.95) +
+  labs(title = "Total revenue by invoice date") +
+  xlab("Invoice date") +
+  ylab("Total revenue")
+# Generate a table of total revenue and total quantities sold by 'CustomerID'
+ecommerce %>% group_by(CustomerID) %>% 
+  summarise(total_revenue = sum(Revenue), 
+            total_qunt_sold = sum(Quantity)) 
+# Why CustomerID == '12346' shows zero for total revenue and total quantities sold?
+ecommerce %>% filter(CustomerID == '12346') %>% 
+  select (CustomerID, Revenue, Quantity)
+# Generate a table of total revenue and otal quantities sold by 'Country'
+ecommerce %>% group_by(Country) %>% 
+  summarise(total_revenue = sum(Revenue), 
+            total_quant_sold = sum(Quantity))
+# Generate a table of total revenue and otal quantities sold by 'Country'
+ecommerce %>% group_by(InvoiceDate, CustomerID, Country) %>% 
+  summarise(total_revenue = sum(Revenue), 
+            total_quant_sold = sum(Quantity))
+# Generate a table of total revenue and otal quantities sold by 'InvoiceDate, CustomerID, and Country'
+cust_data <- ecommerce %>% 
+  group_by(CustomerID, Country) %>% 
+  summarise(total_revenue = sum(Revenue), 
+            total_quant_sold = sum(Quantity))
+# Show the first 10 rows
+head(cust_data, 10)
+# Show the number of customers
+nrow(cust_data)
+# Show the exact number of customers
+length(unique(cust_data$CustomerID))
+# Remove customers who lived in multiple countries in the same year
+freq_table <- data.frame(table(cust_data$CustomerID))
+head(freq_table, 10)
+uniqueCustomerID = (freq_table[freq_table$Freq==1,])$Var1
+head(uniqueCustomerID, 10)
+cust_data <- subset(cust_data, (cust_data$CustomerID) %in%
+                      uniqueCustomerID)
+head(cust_data, 10)
+# Show whether duplicated customers are successfully removed
+nrow(cust_data)
+length(unique(cust_data$CustomerID))
+# Plot to see whether there are outliers in 'total_revenue' and 'total_quant_sold' columns
+ggplot(cust_data, aes(total_revenue)) +
+  geom_boxplot(fill = 'white', colour= '#3366FF', notch = TRUE,
+               outlier.colour = "red", outlier.shape = 2) +
+  xlab('Total revenue')
+
+ggplot(cust_data, aes(total_quant_sold)) +
+  geom_boxplot(fill = 'white', colour= '#3366FF', notch = TRUE,
+               outlier.colour = "red", outlier.shape = 2) +
+  xlab('Total quantities sold')
+
+## Remove outliers
+# Clearly there are outliers for 'total_revenue' and 'total_quant_sold' columns, so I would adopt the IQR method to remove these outliers because it does not depend on the mean and standard deviation of the dataset. Note: the interquartile range is the central 50% or the area between the 75th and the 25th percentile of a distrubtion. A poin is an outlier iif it is above the 75th or below the 25th percentile by a factor of 1.5 times the IQR. For example, if Q1 = 25th percentile and Q3 = 75th percentile, then IQR = Q3 - Q1. And an outlier would be a point below [Q1 - (1.5) * IQR] or above [Q3 + (1.5)I * QR]
+Q <- quantile(cust_data$total_revenue, 
+              probs = c(.25, .75), na.rm = FALSE)
+iqr <- IQR(cust_data$total_revenue)
+# Find the cut-off ranges beyond which all data points are outliers
+up <- Q[2] + 1.5 * iqr # Upper Range
+low <- Q[1] - 1.5 * iqr # Lower Range
+# Eliminating outliers
+eliminated <- subset(cust_data, cust_data$total_revenue > low & cust_data$total_revenue < up)
+# Plot 'total_revenue' column without outliers
+ggplot(eliminated, aes(total_revenue)) +
+  geom_boxplot(fill = 'white', colour= '#3366FF', notch = TRUE,
+               outlier.colour = "red", outlier.shape = 2) +
+  xlab('Total revenue')
+# Remove outliers from 'total_quant_sold' column
+Q1 <- quantile(eliminated$total_quant_sold,
+               probs = c(.25, .75), na.rm = FALSE)
+iqr1 <- IQR(eliminated$total_quant_sold)
+# Find the cut-off ranges beyond which all data points are outliers
+up1 <- Q1[2] + 1.5 * iqr # Upper Range
+low1 <- Q1[1] - 1.5 * iqr # Lower Range
+# Eliminating outliers
+cust_data <- subset(eliminated, eliminated$total_quant_sold > low & eliminated$total_quant_sold < up)
+# Plot 'total_revenue' column without outliers
+ggplot(cust_data, aes(total_quant_sold)) +
+  geom_boxplot(fill = 'white', colour= '#3366FF', notch = TRUE,
+               outlier.colour = "red", outlier.shape = 2) +
+  xlab('Total quantities sold')
+
+## Remove 'CustomerID' and 'Country' columns
+cust_data_new <- cust_data[, -c(1, 2)]
+head(cust_data_new, n=10)
+
+## Scaling
+# Before proceed to model building, scaling is an important step.
+cust_data_new <- scale(cust_data_new)
+head(cust_data_new, n=10)
+
+set.seed(874)
+# Elbow method
+fviz_nbclust(cust_data_new, kmeans, method = "wss") +
+  geom_vline(xintercept = 2, linetype = 2)+
+  labs(subtitle = "Elbow method")
+
+# Silhouette method
+set.seed(2345) 
+fviz_nbclust(cust_data_new, kmeans, method = "silhouette")+
+  labs(subtitle = "Silhouette method")
+
+# Gap statistic
+# nboot = 100 to keep the function speedy. 
+# Recommended value: nboot= 500 for your analysis.
+# Use verbose = FALSE to hide computing progression.
+set.seed(123)
+fviz_nbclust(cust_data_new, kmeans, nstart = 25,  method = "gap_stat", nboot = 100, verbose = FALSE)+
+  labs(subtitle = "Gap statistic method")
+
+# Perform k-means clustering based on the methods above with k=2
+km <- kmeans(cust_data_new, centers = 2, iter.max = 50, nstart = 50)
+str(km)
+km$centers
+# Visualize the k-means
+fviz_cluster(km, cust_data_new,
+             palette = c("#2E9FDF", "#00AFBB"), 
+             geom = "point",
+             ellipse.type = "convex",
+             ylab = "Total quantities sold",
+             xlab = "Total revenue"
+)
+
+# Assign cluster to 'cust_data' data frame to identify valuable customers
+cust_data$cluster <- km$cluster
+head(cust_data, n=10)
+
+# Plot count of clusters by country
+cust_data %>% mutate(Country = ifelse(Country == 'RSA', 'South Africa', Country)) %>%
+  ggplot( aes(y = cluster)) +
+  geom_bar(aes(fill = Country)) +
+  ggtitle("Count of clusters by country") +
+  ylab("Cluster") +
+  xlab("Count") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Plot count of clusters by country without United Kingdom
+cust_data %>% filter(Country!= 'United Kingdom') %>%
+  ggplot( aes(y = cluster)) +
+  geom_bar(aes(fill = Country)) +
+  ggtitle("Count of clusters by country without United Kingdom") +
+  ylab("Cluster") +
+  xlab("Count") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Create 'region' column using library(countrycode)
+cust_data <- cust_data %>% 
+  mutate(Region = countrycode(sourcevar = Country,
+                              origin = "country.name",
+                              destination = "region"))
+# Remove unidentified region
+cust_data <- na.omit(cust_data)
+
+# Plot count of clusters by region
+ggplot(data = cust_data, aes(y = cluster)) +
+  geom_bar(aes(fill = Region)) +
+  ggtitle("Count of clusters by region") +
+  ylab("Cluster") +
+  xlab("Count") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Plot count of clusters by region excluding United Kingdom
+cust_data %>% filter(Country!= 'United Kingdom') %>%
+  ggplot( aes(y = cluster)) +
+  geom_bar(aes(fill = Region)) +
+  ggtitle("Count of clusters by region without United Kingdom") +
+  ylab("Cluster") +
+  xlab("Count") +
+  theme(plot.title = element_text(hjust = 0.5))
+
